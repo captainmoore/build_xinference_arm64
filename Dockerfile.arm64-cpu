@@ -1,63 +1,41 @@
-FROM continuumio/miniconda3:24.1.2-0
+FROM continuumio/miniconda3:23.10.0-1
 
-LABEL maintainer="hello@xprobe.io"
+COPY . /opt/inference
 
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-ENV PATH=/opt/conda/bin:$PATH
-ENV NVM_DIR=/root/.nvm
-ENV PYTHONPATH=/opt/inference
+ENV NVM_DIR /usr/local/nvm
+ENV NODE_VERSION 14.21.1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl build-essential gcc g++ python3-dev && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get -y update \
+  && apt install -y build-essential curl procps git libgl1 \
+  && mkdir -p $NVM_DIR \
+  && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+  && . $NVM_DIR/nvm.sh \
+  && nvm install $NODE_VERSION \
+  && nvm alias default $NODE_VERSION \
+  && nvm use default \
+  && apt-get -yq clean
 
-# Set working directory
-WORKDIR /opt/inference
+ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
-# Copy project files
-COPY . .
-
-# Install Node.js
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash && \
-    . $NVM_DIR/nvm.sh && \
-    nvm install 14.21.1 && \
-    nvm use 14.21.1
-
-# Install Python dependencies
 ARG PIP_INDEX=https://pypi.org/simple
-RUN python -m pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel cython
-
-# Install PyTorch first
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-
-# Create modified requirements files without problematic packages
-RUN grep -v "^xoscar" /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt > /tmp/requirements_cpu-base-arm64.txt && \
-    grep -v "autoawq\|gptqmodel\|bitsandbytes\|pynini\|verovio" /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-ml.txt > /tmp/requirements_cpu-ml-arm64.txt && \
-    sed 's/onnxruntime-gpu/onnxruntime/g; s/onnxruntime==1\.16\.0/onnxruntime>=1.20.0/g; s/misaki>=0\.7\.15/misaki>=0.7.0/g; s/kokoro>=0\.7\.15/kokoro>=0.7.0/g' /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt | grep -v "eva-decord\|nemo_text_processing\|pynini\|verovio" > /tmp/requirements_cpu-models-arm64.txt
-
-# Try to install xoscar, skip if fails (ARM64 compatibility issue)
-RUN pip install -i "$PIP_INDEX" --only-binary=xoscar xoscar>=0.7.2 || \
-    pip install -i "$PIP_INDEX" --no-build-isolation xoscar>=0.7.2 || \
-    echo "Warning: xoscar installation failed, skipping (ARM64 compatibility issue)"
-
-# Install other dependencies
-RUN pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /tmp/requirements_cpu-base-arm64.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /tmp/requirements_cpu-models-arm64.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /tmp/requirements_cpu-ml-arm64.txt
-
-# Build web components and install xinference
-RUN cd /opt/inference && \
+RUN python -m pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel "packaging>=24.2" && \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt && \
+    pip install --no-cache-dir -i "$PIP_INDEX" --no-build-isolation gptqmodel && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-ml.txt && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy  only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt && \
+    cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip install -i "$PIP_INDEX" "xllamacpp>=0.2.0" && \
+    # clean packages
     pip cache purge
 
-# Clean up temporary files
-RUN rm -f /tmp/requirements_cpu-*-arm64.txt
-EXPOSE 9997
+RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
+    ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
+    ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
+    /opt/conda/bin/conda clean --all -y
 
-ENTRYPOINT ["python", "-m", "xinference.deploy.supervisor", "-H", "0.0.0.0"]
-CMD ["--help"]
+ENTRYPOINT []
+CMD ["/bin/bash"]
