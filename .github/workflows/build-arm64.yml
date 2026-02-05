@@ -9,8 +9,8 @@ on:
         type: string
 
 env:
-  REGISTRY: crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com
-  NAMESPACE: yuyi_tech
+  REGISTRY: crpi-78nd1lm0ymfgxrcr.cn-hangzhou.personal.cr.aliyuncs.com
+  NAMESPACE: dd-arm64
   IMAGE_NAME: xinference
 
 jobs:
