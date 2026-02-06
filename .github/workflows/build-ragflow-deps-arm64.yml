@@ -52,7 +52,7 @@ jobs:
           python3 download_deps.py
           
           # 验证下载的文件
-          ls -l deps/
+          # ls -l deps/
 
       - name: Build and push ARM64 Docker image
         uses: docker/build-push-action@v5
