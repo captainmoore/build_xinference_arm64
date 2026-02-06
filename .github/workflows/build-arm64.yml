@@ -32,7 +32,7 @@ jobs:
 
       - name: Clone Xinference repository
         run: |
-          git clone --depth 1 --branch ${{ github.event.inputs.xinference_tag }} https://github.com/xorbitsai/inference.git xinference-repo
+          git clone --depth 1 --branch ${{ github.event.inputs.xinference_tag }} https://github.com/captainmoore/build_xinference_arm64.git xinference-repo
 
       - name: Copy custom ARM64 Dockerfile
         run: |
