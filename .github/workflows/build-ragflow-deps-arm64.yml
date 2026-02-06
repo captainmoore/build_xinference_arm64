@@ -46,6 +46,7 @@ jobs:
           
           # 安装必要的Python依赖
           # pip3 install -r requirements.txt
+          pip3 install nltk huggingface_hub
           
           # 运行下载脚本
           python3 download_deps.py
