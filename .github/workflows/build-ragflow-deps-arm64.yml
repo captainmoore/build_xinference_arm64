@@ -12,6 +12,7 @@ env:
   REGISTRY: crpi-78nd1lm0ymfgxrcr.cn-hangzhou.personal.cr.aliyuncs.com
   NAMESPACE: dd-arm64
   IMAGE_NAME: ragflow
+  DEPS_IMAGE_NAME: ragflow_deps
 
 jobs:
   build-arm64:
@@ -42,10 +43,10 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./ragflow-repo
-          file: ./ragflow-repo/Dockerfile
+          file: ./ragflow-repo/Dockerfile.deps
           platforms: linux/arm64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.project_tag }}-arm64
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.DEPS_IMAGE_NAME }}:${{ github.event.inputs.project_tag }}-arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
