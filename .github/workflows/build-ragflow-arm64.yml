@@ -7,11 +7,18 @@ on:
         description: 'Repository tag to build'
         required: true
         type: string
+      deps_image_tag:  # 可选：可以动态指定依赖镜像标签
+        description: 'Dependencies image tag'
+        required: false
+        type: string
+        default: latest
 
 env:
   REGISTRY: crpi-78nd1lm0ymfgxrcr.cn-hangzhou.personal.cr.aliyuncs.com
   NAMESPACE: dd-arm64
   IMAGE_NAME: ragflow
+  # 使用完整的镜像地址，可以通过输入参数动态调整
+  DEPS_IMAGE: crpi-78nd1lm0ymfgxrcr.cn-hangzhou.personal.cr.aliyuncs.com/dd-arm64/ragflow_deps
 
 jobs:
   build-arm64:
@@ -34,9 +41,23 @@ jobs:
         run: |
           git clone --depth 1 --branch ${{ github.event.inputs.project_tag }} https://github.com/infiniflow/ragflow.git ragflow-repo
 
-      # - name: Copy custom ARM64 Dockerfile
-      #   run: |
-      #     cp Dockerfile.arm64-cpu xinference-repo/
+      - name: Prepare Docker build arguments
+        id: prepare
+        run: |
+          # 构建完整的依赖镜像地址
+          if [ -n "${{ github.event.inputs.deps_image_tag }}" ]; then
+            DEPS_FULL_IMAGE="${{ env.DEPS_IMAGE }}:${{ github.event.inputs.deps_image_tag }}"
+          else
+            DEPS_FULL_IMAGE="${{ env.DEPS_IMAGE }}:latest"
+          fi
+          echo "Using dependencies image: $DEPS_FULL_IMAGE"
+          echo "DEPS_FULL_IMAGE=$DEPS_FULL_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Modify Dockerfile
+        run: |
+          cd ragflow-repo
+          # 使用 sed 替换基础镜像地址
+          sed -i "s|infiniflow/ragflow_deps:latest|${{ steps.prepare.outputs.DEPS_FULL_IMAGE }}|g" Dockerfile
 
       - name: Build and push ARM64 Docker image
         uses: docker/build-push-action@v5
